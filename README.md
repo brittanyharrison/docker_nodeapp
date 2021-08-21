@@ -17,9 +17,49 @@
 - **A complex and scalable application**:  The microservices architecture will make scaling and adding new capabilities to your application much easier. So if you plan to develop a large application with multiple modules and user journeys, a microservice pattern would be the best way to handle it.
 - **Enough engineering skills**: Since a microservice project comprises multiple teams responsible for multiple services, you need to have enough resources to handle all the processes.
 
+## Multi-Stage Build
+
+Using the development image can be useful for testing and additional configuration, but the image size may be relatively large. Once everything is working with the development image, multi-stage builds can be used to create a lightweight image, without having to write a new Dockerfile.
+
+Add another stage with a more lightweight image (``FROM node:alpine``) and copy any necessary files from the first stage, and then run any necessary commands. For the node app, multi-stage builds reduced the image size from ~970MB to ~120MB.
+
+### Lightweight App Dockerfile
+
+```Dockerfile
+FROM node AS app
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm install -g npm@7.20.6
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["node", "app.js"]
+
+FROM node:alpine 
+
+WORKDIR /usr/src/app
+
+RUN npm install -g npm@7.20.6
+
+#COPY --from =app /usr/src/app /usr/src app
+
+COPY . .
+
+EXPOSE 3000
+
+CMD [ "node", "seeds/seed.js"]
+
+CMD ["node", "app.js"]
+```
+
 # Docker-Compose 
 
-Using Compose is basically a three-step process:
+Using [Docker Compose](https://docs.docker.com/compose/) is basically a three-step process:
 
 1. Define your app’s environment with a Dockerfile so it can be reproduced anywhere.
 
@@ -28,6 +68,20 @@ Using Compose is basically a three-step process:
 3. Run `docker compose up` and the Docker compose command starts and runs your entire app. Run `docker compose build` to update any changes to the docker compse file. 
 
 ### Apply microservices to the Node app and Mongodb
+
+### MongoDB Dockerfile
+
+The Dockerfile to configure the database is relatively straightforward, after copying the ``mongod.conf`` file to bind the IP to ``0.0.0.0``, and exposing port 27017, the service can be started.
+
+```Dockerfile
+FROM mongo
+
+COPY mongod.conf /etc/
+
+EXPOSE 27017
+
+CMD ["mongod"]
+```
 
 Lets define all services in a config file, that can spin up all the containers that we need 
 
@@ -73,6 +127,7 @@ Webhooks are POST requests sent to a URL you define in Docker Hub.
 To create a webhook, visit the webhooks tab for your repository. Then:
 
 - Provide a name for the webhooks
+
 - Provide a destination webhook URL. This is where webhook POST requests will be delivered:
 
 ![img](img/webhooks-create.png)
